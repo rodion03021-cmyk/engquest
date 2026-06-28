@@ -41,6 +41,14 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+    // Когда новая версия service worker берёт управление страницей — перезагружаем её один
+    // раз, чтобы код приложения обновился сразу, а не зависал в старом состоянии до закрытия.
+    let swRefreshed = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (swRefreshed) return;
+      swRefreshed = true;
+      window.location.reload();
+    });
   }
 </script>
 </body>

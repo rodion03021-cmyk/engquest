@@ -1,6 +1,6 @@
 // Service worker: кэширует "скелет" приложения для офлайн-работы как у настоящего приложения.
 // При выпуске изменений увеличивай CACHE_VERSION — иначе старые файлы останутся в кэше.
-const CACHE_VERSION = 'engquest-v2';
+const CACHE_VERSION = 'engquest-v3';
 
 const APP_SHELL = [
   './',
@@ -38,20 +38,36 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Cache-first: отдаём из кэша мгновенно, в фоне обновляем кэш свежей версией с сети.
+const IMAGE_RE = /\.(png|jpg|jpeg|svg|gif|webp)$/i;
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+
+  if (IMAGE_RE.test(url.pathname)) {
+    // Картинки/иконки меняются редко — кэш-сначала, в фоне обновляем кэш свежей версией.
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        const network = fetch(event.request)
+          .then((response) => {
+            if (response.ok) caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, response.clone()));
+            return response;
+          })
+          .catch(() => cached);
+        return cached || network;
+      })
+    );
+    return;
+  }
+
+  // HTML/JS/CSS/манифест — сеть-сначала, чтобы обновления кода приходили сразу при следующем
+  // запуске, а не зависали в кэше непредсказуемо долго. Кэш — только запасной вариант офлайн.
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const network = fetch(event.request)
-        .then((response) => {
-          if (response.ok) {
-            caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, response.clone()));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok) caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, response.clone()));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
