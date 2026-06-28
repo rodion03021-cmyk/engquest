@@ -1,6 +1,6 @@
 // Service worker: кэширует "скелет" приложения для офлайн-работы как у настоящего приложения.
 // При выпуске изменений увеличивай CACHE_VERSION — иначе старые файлы останутся в кэше.
-const CACHE_VERSION = 'engquest-v1';
+const CACHE_VERSION = 'engquest-v2';
 
 const APP_SHELL = [
   './',

@@ -4,6 +4,7 @@
   const topBar = document.getElementById('top-bar');
   const backBtn = document.getElementById('btn-back');
   const muteBtn = document.getElementById('btn-mute');
+  const voiceBtn = document.getElementById('btn-voice');
   const toastHost = document.getElementById('toast-host');
 
   let lastStats = { hearts: null, xp: null, streak: null };
@@ -36,6 +37,7 @@
     refreshMuteBtn();
   });
   refreshMuteBtn();
+  voiceBtn.addEventListener('click', showVoicePicker);
 
   function showAchievementToast(def) {
     const toast = document.createElement('div');
@@ -158,6 +160,58 @@
     document.getElementById('journal-btn').addEventListener('click', showJournal);
     document.getElementById('achievements-btn').addEventListener('click', showAchievements);
     document.getElementById('resources-btn').addEventListener('click', showResources);
+  }
+
+  function renderVoiceList() {
+    const host = document.getElementById('voice-list');
+    if (!host) return;
+    const voices = Speech.englishVoices();
+    if (!voices.length) {
+      host.innerHTML = `<p class="journal-empty">Голоса ещё загружаются... Подожди секунду.</p>`;
+      return;
+    }
+    const savedURI = Speech.getSavedVoiceURI();
+    host.innerHTML = voices
+      .map((v, i) => {
+        const selected = savedURI ? savedURI === v.voiceURI : i === 0;
+        return `
+          <div class="voice-card ${selected ? 'selected' : ''}" data-voice-uri="${encodeURIComponent(v.voiceURI)}">
+            <div class="voice-info">
+              <div class="voice-name">${v.name}</div>
+              <div class="voice-lang">${v.lang}</div>
+            </div>
+            <button class="voice-play-btn" data-action="play" aria-label="Прослушать">▶️</button>
+            <button class="voice-select-btn" data-action="select">${selected ? '✓ Выбран' : 'Выбрать'}</button>
+          </div>
+        `;
+      })
+      .join('');
+    host.querySelectorAll('.voice-card').forEach((card) => {
+      const voiceURI = decodeURIComponent(card.dataset.voiceUri);
+      card.querySelector('[data-action="play"]').addEventListener('click', () => {
+        Speech.speakWithVoice('Hello, how are you today?', voiceURI);
+      });
+      card.querySelector('[data-action="select"]').addEventListener('click', () => {
+        Speech.setVoice(voiceURI);
+        renderVoiceList();
+      });
+    });
+  }
+
+  function showVoicePicker() {
+    backBtn.classList.remove('hidden');
+    topBar.classList.remove('hidden');
+    refreshTopBar();
+    app.innerHTML = `
+      <div class="voice-screen">
+        <h2 class="achievements-title">🎙️ Выбор голоса</h2>
+        <p class="journal-hint">Если озвучка звучит слишком "по-роботски" — попробуй другие голоса (нажми ▶️) и выбери тот, что нравится больше. Список голосов зависит от твоего телефона/браузера.</p>
+        <div id="voice-list"></div>
+      </div>
+    `;
+    Speech.refreshVoices();
+    renderVoiceList();
+    setTimeout(renderVoiceList, 400); // на случай, если голоса подгрузились с опозданием
   }
 
   function showAchievements() {
