@@ -162,12 +162,21 @@
     document.getElementById('resources-btn').addEventListener('click', showResources);
   }
 
-  function renderVoiceList() {
+  let voicePollTimer = null;
+
+  function renderVoiceList(pollExhausted) {
     const host = document.getElementById('voice-list');
     if (!host) return;
     const voices = Speech.englishVoices();
     if (!voices.length) {
-      host.innerHTML = `<p class="journal-empty">Голоса ещё загружаются... Подожди секунду.</p>`;
+      host.innerHTML = pollExhausted
+        ? `
+          <p class="journal-empty">Не удалось получить список голосов с этого устройства. Озвучка всё равно работает — используется голос по умолчанию из настроек телефона.</p>
+          <button class="btn-primary" id="voice-retry-btn">Проверить снова</button>
+        `
+        : `<p class="journal-empty">Голоса ещё загружаются... Подожди секунду.</p>`;
+      const retryBtn = document.getElementById('voice-retry-btn');
+      if (retryBtn) retryBtn.addEventListener('click', showVoicePicker);
       return;
     }
     const savedURI = Speech.getSavedVoiceURI();
@@ -209,9 +218,23 @@
         <div id="voice-list"></div>
       </div>
     `;
+    if (voicePollTimer) clearInterval(voicePollTimer);
+    Speech.warmUp();
     Speech.refreshVoices();
-    renderVoiceList();
-    setTimeout(renderVoiceList, 400); // на случай, если голоса подгрузились с опозданием
+    renderVoiceList(false);
+    let attempts = 0;
+    const MAX_ATTEMPTS = 12;
+    voicePollTimer = setInterval(() => {
+      attempts += 1;
+      Speech.refreshVoices();
+      const found = Speech.englishVoices().length > 0;
+      const exhausted = attempts >= MAX_ATTEMPTS;
+      if (found || exhausted) {
+        clearInterval(voicePollTimer);
+        voicePollTimer = null;
+      }
+      renderVoiceList(!found && exhausted);
+    }, 400);
   }
 
   function showAchievements() {

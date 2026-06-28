@@ -70,5 +70,19 @@ const Speech = (() => {
     window.speechSynthesis.speak(utter);
   }
 
-  return { speak, speakWithVoice, supported, englishVoices, refreshVoices, getSavedVoiceURI, setVoice };
+  // На некоторых версиях Android Chrome getVoices() возвращает пустой список, пока
+  // движок озвучки не "разбужен" хотя бы одним вызовом speak() — поэтому перед опросом
+  // списка голосов проигрываем беззвучную фразу, чтобы спровоцировать его инициализацию.
+  function warmUp() {
+    if (!supported) return;
+    try {
+      const utter = new SpeechSynthesisUtterance(' ');
+      utter.volume = 0;
+      window.speechSynthesis.speak(utter);
+    } catch (e) {
+      // игнорируем — это просто попытка "разбудить" движок, не критично при ошибке
+    }
+  }
+
+  return { speak, speakWithVoice, warmUp, supported, englishVoices, refreshVoices, getSavedVoiceURI, setVoice };
 })();
